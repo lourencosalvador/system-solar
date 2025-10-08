@@ -11,18 +11,15 @@ export default function SolarSystem() {
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [focusedPlanet, setFocusedPlanet] = useState<string | null>(null);
-  
-  // Springs suaves para os valores de orientação
+
   const alphaSpring = useSpring(0, { stiffness: 50, damping: 20 });
   const betaSpring = useSpring(0, { stiffness: 50, damping: 20 });
   const gammaSpring = useSpring(0, { stiffness: 50, damping: 20 });
-  
-  // Transformar valores para rotações (invertidos para efeito correto)
+
   const rotateX = useTransform(betaSpring, (v) => -(v - 90) * 0.8);
   const rotateY = useTransform(gammaSpring, (v) => -v * 0.8);
   const rotateZ = useTransform(alphaSpring, (v) => v * 0.2);
 
-  // Solicitar permissões para sensores de movimento
   const requestMotionPermission = async () => {
     if (typeof DeviceOrientationEvent !== 'undefined' && 'requestPermission' in DeviceOrientationEvent) {
       try {
@@ -35,36 +32,27 @@ export default function SolarSystem() {
         console.error('Erro ao solicitar permissão:', error);
       }
     } else {
-      // Para navegadores que não precisam de permissão explícita
       setPermissionGranted(true);
       return true;
     }
     return false;
   };
 
-  // Manipular orientação do dispositivo
   const handleDeviceOrientation = (event: DeviceOrientationEvent) => {
     if (!isVRMode) return;
-    
     const alpha = event.alpha || 0;
     const beta = event.beta || 0;
     const gamma = event.gamma || 0;
-    
-    // Atualizar springs para movimento suave
     alphaSpring.set(alpha);
     betaSpring.set(beta);
     gammaSpring.set(gamma);
   };
 
   useEffect(() => {
-    // Criar estrelas no fundo (estático)
     const createStars = () => {
       const background = document.querySelector(".stars-background");
       if (!background) return;
-      
-      // Limpar estrelas existentes
       background.innerHTML = '';
-      
       for (let i = 0; i < 1000; i++) {
         const star = document.createElement("div");
         star.className = "star";
@@ -79,21 +67,17 @@ export default function SolarSystem() {
 
     createStars();
 
-    // Adicionar listener para orientação do dispositivo
     if (permissionGranted) {
       window.addEventListener('deviceorientation', handleDeviceOrientation, true);
     }
 
-    // Cleanup ao desmontar
     return () => {
       window.removeEventListener('deviceorientation', handleDeviceOrientation, true);
     };
   }, [permissionGranted, isVRMode, handleDeviceOrientation]);
 
-  // Reconhecimento de voz
   useEffect(() => {
     if (!isVRMode) return;
-    
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       console.log('Reconhecimento de voz não suportado');
@@ -127,8 +111,6 @@ export default function SolarSystem() {
     recognition.onresult = (event: any) => {
       const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
       console.log('Você disse:', transcript);
-      
-      // Procurar por nome de planeta
       for (const [name, planetId] of Object.entries(planetNames)) {
         if (transcript.includes(name)) {
           setFocusedPlanet(planetId);
@@ -170,7 +152,6 @@ export default function SolarSystem() {
   }, [isVRMode]);
 
   const enterVR = async () => {
-    // Primeiro solicitar permissões para sensores
     const hasPermission = await requestMotionPermission();
     if (!hasPermission) {
       alert('Permissão para sensores de movimento é necessária para VR');
@@ -178,8 +159,7 @@ export default function SolarSystem() {
     }
 
     const element = document.documentElement;
-    
-    // Entrar em fullscreen
+
     try {
       if (element.requestFullscreen) {
         await element.requestFullscreen();
@@ -192,10 +172,8 @@ export default function SolarSystem() {
       console.error('Erro ao entrar em fullscreen:', error);
     }
 
-    // Ativar modo VR
     setIsVRMode(true);
 
-    // Bloquear orientação em landscape se possível
     if ('screen' in window && 'orientation' in window.screen && 'lock' in window.screen.orientation) {
       try {
         await (window.screen.orientation as any).lock('landscape');
@@ -206,11 +184,9 @@ export default function SolarSystem() {
   };
 
   const exitVR = async () => {
-    // Desativar modo VR
     setIsVRMode(false);
     setFocusedPlanet(null);
 
-    // Sair do fullscreen
     try {
       if (document.exitFullscreen) {
         await document.exitFullscreen();
@@ -223,7 +199,6 @@ export default function SolarSystem() {
       console.error('Erro ao sair do fullscreen:', error);
     }
 
-    // Desbloquear orientação se possível
     if ('screen' in window && 'orientation' in window.screen && 'unlock' in window.screen.orientation) {
       try {
         window.screen.orientation.unlock();
@@ -235,10 +210,7 @@ export default function SolarSystem() {
 
   return (
     <>
-      {/* Fundo estático com estrelas */}
       <div className="stars-background"></div>
-
-      {/* Controles VR */}
       <div className="vr-controls">
         {!isVRMode ? (
           <>
@@ -255,8 +227,6 @@ export default function SolarSystem() {
           </button>
         )}
       </div>
-      
-      {/* Container do Sistema Solar - SE MOVE com sensores */}
       <motion.div 
         className="container" 
         ref={containerRef}
