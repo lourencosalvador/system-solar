@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
+import { motion, useSpring, useTransform } from 'framer-motion';
 
 export default function SolarSystem() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -13,6 +14,18 @@ export default function SolarSystem() {
     gamma: 0  // Y axis
   });
   const [permissionGranted, setPermissionGranted] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [focusedPlanet, setFocusedPlanet] = useState<string | null>(null);
+  
+  // Springs suaves para os valores de orientação
+  const alphaSpring = useSpring(0, { stiffness: 50, damping: 20 });
+  const betaSpring = useSpring(0, { stiffness: 50, damping: 20 });
+  const gammaSpring = useSpring(0, { stiffness: 50, damping: 20 });
+  
+  // Transformar valores para rotações
+  const rotateX = useTransform(betaSpring, (v) => (v - 90) * 0.5);
+  const rotateY = useTransform(gammaSpring, (v) => v * 0.5);
+  const rotateZ = useTransform(alphaSpring, (v) => v * 0.1);
 
   // Solicitar permissões para sensores de movimento
   const requestMotionPermission = async () => {
@@ -38,11 +51,18 @@ export default function SolarSystem() {
   const handleDeviceOrientation = (event: DeviceOrientationEvent) => {
     if (!isVRMode) return;
     
-    setDeviceOrientation({
+    const newOrientation = {
       alpha: event.alpha || 0,
       beta: event.beta || 0,
       gamma: event.gamma || 0
-    });
+    };
+    
+    setDeviceOrientation(newOrientation);
+    
+    // Atualizar springs para movimento suave
+    alphaSpring.set(newOrientation.alpha);
+    betaSpring.set(newOrientation.beta);
+    gammaSpring.set(newOrientation.gamma);
   };
 
   useEffect(() => {
@@ -84,26 +104,82 @@ export default function SolarSystem() {
     };
   }, [permissionGranted, isVRMode]);
 
-  // Aplicar transformações 3D baseadas na orientação
+  // Reconhecimento de voz
   useEffect(() => {
-    if (!isVRMode || !containerRef.current) return;
+    if (!isVRMode) return;
+    
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.log('Reconhecimento de voz não suportado');
+      return;
+    }
 
-    const container = containerRef.current;
-    const { alpha, beta, gamma } = deviceOrientation;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.lang = 'pt-BR';
+    recognition.interimResults = false;
 
-    // Converter orientação em rotações 3D
-    const rotateX = (beta - 90) * 0.5; // Inclinar para frente/trás
-    const rotateY = gamma * 0.5; // Inclinar para esquerda/direita
-    const rotateZ = alpha * 0.1; // Rotação no eixo Z
+    const planetNames: { [key: string]: string } = {
+      'sol': 'sun',
+      'mercúrio': 'mercury',
+      'vênus': 'venus',
+      'vénus': 'venus',
+      'terra': 'earth',
+      'marte': 'mars',
+      'júpiter': 'jupiter',
+      'jupiter': 'jupiter',
+      'saturno': 'saturn',
+      'urano': 'uranus',
+      'úrano': 'uranus',
+      'netuno': 'neptune',
+      'neptuno': 'neptune',
+      'plutão': 'pluto',
+      'pluto': 'pluto'
+    };
 
-    container.style.transform = `
-      perspective(1000px)
-      rotateX(${rotateX}deg)
-      rotateY(${rotateY}deg)
-      rotateZ(${rotateZ}deg)
-      scale(${isVRMode ? 0.8 : 1})
-    `;
-  }, [deviceOrientation, isVRMode]);
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
+      console.log('Você disse:', transcript);
+      
+      // Procurar por nome de planeta
+      for (const [name, planetId] of Object.entries(planetNames)) {
+        if (transcript.includes(name)) {
+          setFocusedPlanet(planetId);
+          setTimeout(() => setFocusedPlanet(null), 5000); // Reset após 5 segundos
+          break;
+        }
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Erro no reconhecimento de voz:', event.error);
+      if (event.error === 'no-speech') {
+        setIsListening(false);
+      }
+    };
+
+    recognition.onend = () => {
+      if (isVRMode) {
+        recognition.start();
+      }
+    };
+
+    try {
+      recognition.start();
+      setIsListening(true);
+    } catch (error) {
+      console.error('Erro ao iniciar reconhecimento:', error);
+    }
+
+    return () => {
+      try {
+        recognition.stop();
+        setIsListening(false);
+      } catch (error) {
+        console.log('Erro ao parar reconhecimento:', error);
+      }
+    };
+  }, [isVRMode]);
 
   const enterVR = async () => {
     // Primeiro solicitar permissões para sensores
@@ -157,6 +233,7 @@ export default function SolarSystem() {
   const exitVR = async () => {
     // Desativar modo VR
     setIsVRMode(false);
+    setFocusedPlanet(null);
 
     // Sair do fullscreen
     try {
@@ -182,11 +259,6 @@ export default function SolarSystem() {
     body.style.alignItems = "";
     body.style.overflow = "";
     body.classList.remove('vr-mode');
-
-    // Reset container transform
-    if (containerRef.current) {
-      containerRef.current.style.transform = "";
-    }
 
     // Desbloquear orientação se possível
     if ('screen' in window && 'orientation' in window.screen && 'unlock' in window.screen.orientation) {
@@ -224,53 +296,140 @@ export default function SolarSystem() {
             <div>Beta: {deviceOrientation.beta.toFixed(1)}°</div>
             <div>Gamma: {deviceOrientation.gamma.toFixed(1)}°</div>
           </div>
+          <div className={`voice-indicator ${isListening ? 'listening' : ''}`}>
+            🎤 {isListening ? 'Ouvindo...' : 'Voz Inativa'}
+          </div>
+          {focusedPlanet && (
+            <div className="focused-planet-name">
+              🎯 Focado em: {focusedPlanet.toUpperCase()}
+            </div>
+          )}
         </div>
       )}
       
-      <div className="container" ref={containerRef}>
-        <div className="sun">
+      <motion.div 
+        className="container" 
+        ref={containerRef}
+        style={{
+          rotateX: isVRMode ? rotateX : 0,
+          rotateY: isVRMode ? rotateY : 0,
+          rotateZ: isVRMode ? rotateZ : 0,
+          scale: isVRMode ? 0.8 : 1,
+        }}
+      >
+        <motion.div 
+          className="sun"
+          animate={{
+            scale: focusedPlanet === 'sun' ? 2.5 : 1,
+            z: focusedPlanet === 'sun' ? 200 : 0,
+          }}
+          transition={{ type: "spring", stiffness: 100, damping: 20 }}
+        >
           <Image src="/images/sun.png" alt="Sol" width={130} height={130} />
-        </div>
+        </motion.div>
         
-        <div className="mercury">
+        <motion.div 
+          className="mercury"
+          animate={{
+            scale: focusedPlanet === 'mercury' ? 4 : 1,
+            z: focusedPlanet === 'mercury' ? 300 : 0,
+          }}
+          transition={{ type: "spring", stiffness: 100, damping: 20 }}
+        >
           <div className="planet-body mercury-body"></div>
-        </div>
+        </motion.div>
         
-        <div className="venus">
+        <motion.div 
+          className="venus"
+          animate={{
+            scale: focusedPlanet === 'venus' ? 3.5 : 1,
+            z: focusedPlanet === 'venus' ? 300 : 0,
+          }}
+          transition={{ type: "spring", stiffness: 100, damping: 20 }}
+        >
           <div className="planet-body venus-body"></div>
-        </div>
+        </motion.div>
         
-        <div className="earth">
+        <motion.div 
+          className="earth"
+          animate={{
+            scale: focusedPlanet === 'earth' ? 3.5 : 1,
+            z: focusedPlanet === 'earth' ? 300 : 0,
+          }}
+          transition={{ type: "spring", stiffness: 100, damping: 20 }}
+        >
           <div className="planet-body earth-body"></div>
           <div className="moon">
             <div className="planet-body moon-body"></div>
           </div>
-        </div>
+        </motion.div>
         
-        <div className="mars">
+        <motion.div 
+          className="mars"
+          animate={{
+            scale: focusedPlanet === 'mars' ? 3.8 : 1,
+            z: focusedPlanet === 'mars' ? 300 : 0,
+          }}
+          transition={{ type: "spring", stiffness: 100, damping: 20 }}
+        >
           <div className="planet-body mars-body"></div>
-        </div>
+        </motion.div>
         
-        <div className="jupiter">
+        <motion.div 
+          className="jupiter"
+          animate={{
+            scale: focusedPlanet === 'jupiter' ? 2 : 1,
+            z: focusedPlanet === 'jupiter' ? 250 : 0,
+          }}
+          transition={{ type: "spring", stiffness: 100, damping: 20 }}
+        >
           <div className="planet-body jupiter-body"></div>
-        </div>
+        </motion.div>
         
-        <div className="saturn">
+        <motion.div 
+          className="saturn"
+          animate={{
+            scale: focusedPlanet === 'saturn' ? 2.2 : 1,
+            z: focusedPlanet === 'saturn' ? 250 : 0,
+          }}
+          transition={{ type: "spring", stiffness: 100, damping: 20 }}
+        >
           <div className="planet-body saturn-body"></div>
-        </div>
+        </motion.div>
         
-        <div className="uranus">
+        <motion.div 
+          className="uranus"
+          animate={{
+            scale: focusedPlanet === 'uranus' ? 2.8 : 1,
+            z: focusedPlanet === 'uranus' ? 280 : 0,
+          }}
+          transition={{ type: "spring", stiffness: 100, damping: 20 }}
+        >
           <div className="planet-body uranus-body"></div>
-        </div>
+        </motion.div>
         
-        <div className="neptune">
+        <motion.div 
+          className="neptune"
+          animate={{
+            scale: focusedPlanet === 'neptune' ? 2.8 : 1,
+            z: focusedPlanet === 'neptune' ? 280 : 0,
+          }}
+          transition={{ type: "spring", stiffness: 100, damping: 20 }}
+        >
           <div className="planet-body neptune-body"></div>
-        </div>
+        </motion.div>
         
-        <div className="pluto">
+        <motion.div 
+          className="pluto"
+          animate={{
+            scale: focusedPlanet === 'pluto' ? 5 : 1,
+            z: focusedPlanet === 'pluto' ? 350 : 0,
+          }}
+          transition={{ type: "spring", stiffness: 100, damping: 20 }}
+        >
           <div className="planet-body pluto-body"></div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </>
   );
 }
