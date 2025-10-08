@@ -8,11 +8,6 @@ import { motion, useSpring, useTransform } from 'framer-motion';
 export default function SolarSystem() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isVRMode, setIsVRMode] = useState(false);
-  const [deviceOrientation, setDeviceOrientation] = useState({
-    alpha: 0, // Z axis
-    beta: 0,  // X axis
-    gamma: 0  // Y axis
-  });
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [focusedPlanet, setFocusedPlanet] = useState<string | null>(null);
@@ -22,10 +17,10 @@ export default function SolarSystem() {
   const betaSpring = useSpring(0, { stiffness: 50, damping: 20 });
   const gammaSpring = useSpring(0, { stiffness: 50, damping: 20 });
   
-  // Transformar valores para rotações
-  const rotateX = useTransform(betaSpring, (v) => (v - 90) * 0.5);
-  const rotateY = useTransform(gammaSpring, (v) => v * 0.5);
-  const rotateZ = useTransform(alphaSpring, (v) => v * 0.1);
+  // Transformar valores para rotações (invertidos para efeito correto)
+  const rotateX = useTransform(betaSpring, (v) => -(v - 90) * 0.8);
+  const rotateY = useTransform(gammaSpring, (v) => -v * 0.8);
+  const rotateZ = useTransform(alphaSpring, (v) => v * 0.2);
 
   // Solicitar permissões para sensores de movimento
   const requestMotionPermission = async () => {
@@ -51,38 +46,34 @@ export default function SolarSystem() {
   const handleDeviceOrientation = (event: DeviceOrientationEvent) => {
     if (!isVRMode) return;
     
-    const newOrientation = {
-      alpha: event.alpha || 0,
-      beta: event.beta || 0,
-      gamma: event.gamma || 0
-    };
-    
-    setDeviceOrientation(newOrientation);
+    const alpha = event.alpha || 0;
+    const beta = event.beta || 0;
+    const gamma = event.gamma || 0;
     
     // Atualizar springs para movimento suave
-    alphaSpring.set(newOrientation.alpha);
-    betaSpring.set(newOrientation.beta);
-    gammaSpring.set(newOrientation.gamma);
+    alphaSpring.set(alpha);
+    betaSpring.set(beta);
+    gammaSpring.set(gamma);
   };
 
   useEffect(() => {
-    // Criar estrelas
+    // Criar estrelas no fundo (estático)
     const createStars = () => {
-      const container = document.querySelector("body");
-      if (!container) return;
+      const background = document.querySelector(".stars-background");
+      if (!background) return;
       
       // Limpar estrelas existentes
-      const existingStars = container.querySelectorAll('.star');
-      existingStars.forEach(star => star.remove());
+      background.innerHTML = '';
       
       for (let i = 0; i < 1000; i++) {
         const star = document.createElement("div");
         star.className = "star";
-        star.style.width = ".1px";
-        star.style.height = ".1px";
+        star.style.width = Math.random() * 2 + "px";
+        star.style.height = star.style.width;
         star.style.top = Math.random() * 100 + "%";
         star.style.left = Math.random() * 100 + "%";
-        container.appendChild(star);
+        star.style.opacity = String(Math.random() * 0.7 + 0.3);
+        background.appendChild(star);
       }
     };
 
@@ -90,19 +81,14 @@ export default function SolarSystem() {
 
     // Adicionar listener para orientação do dispositivo
     if (permissionGranted) {
-      window.addEventListener('deviceorientation', handleDeviceOrientation);
+      window.addEventListener('deviceorientation', handleDeviceOrientation, true);
     }
 
     // Cleanup ao desmontar
     return () => {
-      const container = document.querySelector("body");
-      if (container) {
-        const stars = container.querySelectorAll('.star');
-        stars.forEach(star => star.remove());
-      }
-      window.removeEventListener('deviceorientation', handleDeviceOrientation);
+      window.removeEventListener('deviceorientation', handleDeviceOrientation, true);
     };
-  }, [permissionGranted, isVRMode]);
+  }, [permissionGranted, isVRMode, handleDeviceOrientation]);
 
   // Reconhecimento de voz
   useEffect(() => {
@@ -122,8 +108,9 @@ export default function SolarSystem() {
     const planetNames: { [key: string]: string } = {
       'sol': 'sun',
       'mercúrio': 'mercury',
+      'mercurio': 'mercury',
       'vênus': 'venus',
-      'vénus': 'venus',
+      'venus': 'venus',
       'terra': 'earth',
       'marte': 'mars',
       'júpiter': 'jupiter',
@@ -145,7 +132,7 @@ export default function SolarSystem() {
       for (const [name, planetId] of Object.entries(planetNames)) {
         if (transcript.includes(name)) {
           setFocusedPlanet(planetId);
-          setTimeout(() => setFocusedPlanet(null), 5000); // Reset após 5 segundos
+          setTimeout(() => setFocusedPlanet(null), 5000);
           break;
         }
       }
@@ -153,14 +140,15 @@ export default function SolarSystem() {
 
     recognition.onerror = (event: any) => {
       console.error('Erro no reconhecimento de voz:', event.error);
-      if (event.error === 'no-speech') {
-        setIsListening(false);
-      }
     };
 
     recognition.onend = () => {
       if (isVRMode) {
-        recognition.start();
+        try {
+          recognition.start();
+        } catch (e) {
+          console.log('Reconhecimento já está ativo');
+        }
       }
     };
 
@@ -206,19 +194,6 @@ export default function SolarSystem() {
 
     // Ativar modo VR
     setIsVRMode(true);
-    
-    // Aplicar transformações VR
-    const body = document.body;
-    body.style.transformOrigin = "center center";
-    body.style.width = "100vw";
-    body.style.height = "100vh";
-    body.style.display = "flex";
-    body.style.justifyContent = "center";
-    body.style.alignItems = "center";
-    body.style.overflow = "hidden";
-    
-    // Adicionar classe VR para estilos específicos
-    body.classList.add('vr-mode');
 
     // Bloquear orientação em landscape se possível
     if ('screen' in window && 'orientation' in window.screen && 'lock' in window.screen.orientation) {
@@ -248,18 +223,6 @@ export default function SolarSystem() {
       console.error('Erro ao sair do fullscreen:', error);
     }
 
-    // Remover transformações VR
-    const body = document.body;
-    body.style.transform = "";
-    body.style.transformOrigin = "";
-    body.style.width = "";
-    body.style.height = "";
-    body.style.display = "";
-    body.style.justifyContent = "";
-    body.style.alignItems = "";
-    body.style.overflow = "";
-    body.classList.remove('vr-mode');
-
     // Desbloquear orientação se possível
     if ('screen' in window && 'orientation' in window.screen && 'unlock' in window.screen.orientation) {
       try {
@@ -272,6 +235,10 @@ export default function SolarSystem() {
 
   return (
     <>
+      {/* Fundo estático com estrelas */}
+      <div className="stars-background"></div>
+
+      {/* Controles VR */}
       <div className="vr-controls">
         {!isVRMode ? (
           <>
@@ -289,24 +256,7 @@ export default function SolarSystem() {
         )}
       </div>
       
-      {isVRMode && (
-        <div className="vr-info">
-          <div className="orientation-display">
-            <div>Alpha: {deviceOrientation.alpha.toFixed(1)}°</div>
-            <div>Beta: {deviceOrientation.beta.toFixed(1)}°</div>
-            <div>Gamma: {deviceOrientation.gamma.toFixed(1)}°</div>
-          </div>
-          <div className={`voice-indicator ${isListening ? 'listening' : ''}`}>
-            🎤 {isListening ? 'Ouvindo...' : 'Voz Inativa'}
-          </div>
-          {focusedPlanet && (
-            <div className="focused-planet-name">
-              🎯 Focado em: {focusedPlanet.toUpperCase()}
-            </div>
-          )}
-        </div>
-      )}
-      
+      {/* Container do Sistema Solar - SE MOVE com sensores */}
       <motion.div 
         className="container" 
         ref={containerRef}
@@ -314,7 +264,6 @@ export default function SolarSystem() {
           rotateX: isVRMode ? rotateX : 0,
           rotateY: isVRMode ? rotateY : 0,
           rotateZ: isVRMode ? rotateZ : 0,
-          scale: isVRMode ? 0.8 : 1,
         }}
       >
         <motion.div 
