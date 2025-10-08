@@ -24,22 +24,69 @@ html, body {
   z-index: 1000;
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .vr-button {
-  padding: 10px 20px;
+  padding: 12px 20px;
   background: rgba(255, 255, 255, 0.1);
   color: white;
   border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 5px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
+  font-weight: 600;
   transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  min-width: 120px;
+  text-align: center;
 }
 
 .vr-button:hover {
   background: rgba(255, 255, 255, 0.2);
   border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
+}
+
+.vr-button.permission-button {
+  background: rgba(0, 255, 0, 0.1);
+  border-color: rgba(0, 255, 0, 0.3);
+}
+
+.vr-button.permission-button:hover {
+  background: rgba(0, 255, 0, 0.2);
+  border-color: rgba(0, 255, 0, 0.5);
+}
+
+.vr-button.exit-button {
+  background: rgba(255, 0, 0, 0.1);
+  border-color: rgba(255, 0, 0, 0.3);
+}
+
+.vr-button.exit-button:hover {
+  background: rgba(255, 0, 0, 0.2);
+  border-color: rgba(255, 0, 0, 0.5);
+}
+
+/* Informações VR */
+.vr-info {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 15px;
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.orientation-display div {
+  margin: 2px 0;
+  padding: 2px 0;
 }
 
 /* Container principal */
@@ -48,7 +95,9 @@ html, body {
   width: 40em;
   height: 40em;
   position: relative;
-  perspective: 1000px;
+  perspective: 2000px;
+  transform-style: preserve-3d;
+  transition: transform 0.1s ease-out;
 }
 
 /* Sol */
@@ -310,20 +359,62 @@ html, body {
 
 /* Estilos para modo VR */
 body.vr-mode {
-  transform: scale(0.5) !important;
-  width: 200% !important;
-  height: 200% !important;
+  width: 100vw !important;
+  height: 100vh !important;
   display: flex !important;
   justify-content: center !important;
   align-items: center !important;
+  overflow: hidden !important;
+  background: #000 !important;
 }
 
 body.vr-mode .container {
-  transform: translateX(-50%);
+  font-size: 8px;
+  transform-style: preserve-3d;
+  perspective: 3000px;
 }
 
 body.vr-mode .vr-controls {
-  display: none;
+  top: 10px;
+  right: 10px;
+}
+
+body.vr-mode .vr-info {
+  top: 10px;
+  left: 10px;
+  font-size: 10px;
+}
+
+/* Melhorar profundidade 3D no modo VR */
+body.vr-mode .sun,
+body.vr-mode .mercury,
+body.vr-mode .venus,
+body.vr-mode .earth,
+body.vr-mode .mars,
+body.vr-mode .jupiter,
+body.vr-mode .saturn,
+body.vr-mode .uranus,
+body.vr-mode .neptune,
+body.vr-mode .pluto {
+  transform-style: preserve-3d;
+}
+
+/* Efeito de paralaxe para estrelas no VR */
+body.vr-mode .star {
+  transform-style: preserve-3d;
+  animation: twinkle 3s ease-in-out infinite alternate, star-depth 20s linear infinite;
+}
+
+@keyframes star-depth {
+  0% {
+    transform: translateZ(0px);
+  }
+  50% {
+    transform: translateZ(-100px);
+  }
+  100% {
+    transform: translateZ(0px);
+  }
 }
 
 /* Responsividade para dispositivos móveis */
