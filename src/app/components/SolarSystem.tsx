@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
@@ -146,7 +147,7 @@ export default function SolarSystem() {
     // Bloquear orientação em landscape se possível
     if ('screen' in window && 'orientation' in window.screen && 'lock' in window.screen.orientation) {
       try {
-        await window.screen.orientation.lock('landscape');
+        await (window.screen.orientation as any).lock('landscape');
       } catch (error) {
         console.log('Não foi possível bloquear a orientação:', error);
       }
