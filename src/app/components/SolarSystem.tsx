@@ -45,10 +45,10 @@ export default function SolarSystem() {
     // Entrar em fullscreen
     if (element.requestFullscreen) {
       element.requestFullscreen();
-    } else if ((element as any).webkitRequestFullscreen) {
-      (element as any).webkitRequestFullscreen();
-    } else if ((element as any).msRequestFullscreen) {
-      (element as any).msRequestFullscreen();
+    } else if ('webkitRequestFullscreen' in element) {
+      (element as HTMLElement & { webkitRequestFullscreen(): Promise<void> }).webkitRequestFullscreen();
+    } else if ('msRequestFullscreen' in element) {
+      (element as HTMLElement & { msRequestFullscreen(): Promise<void> }).msRequestFullscreen();
     }
 
     // Aplicar transformações VR
@@ -68,10 +68,10 @@ export default function SolarSystem() {
   const exitVR = () => {
     if (document.exitFullscreen) {
       document.exitFullscreen();
-    } else if ((document as any).webkitExitFullscreen) {
-      (document as any).webkitExitFullscreen();
-    } else if ((document as any).msExitFullscreen) {
-      (document as any).msExitFullscreen();
+    } else if ('webkitExitFullscreen' in document) {
+      (document as Document & { webkitExitFullscreen(): Promise<void> }).webkitExitFullscreen();
+    } else if ('msExitFullscreen' in document) {
+      (document as Document & { msExitFullscreen(): Promise<void> }).msExitFullscreen();
     }
 
     // Remover transformações VR
